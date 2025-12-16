@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 # Load the cascade
 face_cascade = cv2.CascadeClassifier('/home/qulorenzo/Cours/Traitement Images/TD7/haarcascades/haarcascades/haarcascade_frontalface_alt.xml')
 eyes_cascade = cv2.CascadeClassifier('/home/qulorenzo/Cours/Traitement Images/TD7/haarcascades/haarcascades/haarcascade_eye_tree_eyeglasses.xml')
+smile_cascade = cv2.CascadeClassifier('/home/qulorenzo/Cours/Traitement Images/TD7/haarcascades/haarcascades/haarcascade_smile.xml')
 
 # cap = cv2.VideoCapture('/home/qulorenzo/Cours/Traitement Images/TD7/images/images/video1.mp4')
 cap = cv2.VideoCapture(0)
@@ -24,6 +25,9 @@ character_y = -200  # Position initiale (au-dessus de l'écran)
 character_speed = 3  # Vitesse de déplacement (pixels par frame)
 character_width = 150  # Largeur du personnage
 character_height = int(character.shape[0] * character_width / character.shape[1]) if character is not None else 200
+
+# Liste pour stocker les étoiles de sourire
+smile_stars = []  # Chaque étoile: {'x': x, 'y': y, 'life': life, 'size': size}
 
 
 while True:
@@ -174,6 +178,23 @@ while True:
                     
                     # Insertion
                     frame[start_y:end_y, start_x:end_x] = blended.astype(np.uint8)
+        
+        # Détecter les sourires dans la région du visage
+        roi_gray_smile = gray[fy:fy+fh, fx:fx+fw]
+        smiles = smile_cascade.detectMultiScale(roi_gray_smile, scaleFactor=1.8, minNeighbors=20, minSize=(25, 25))
+        
+        if len(smiles) > 0:
+            # Un sourire est détecté ! Ajouter des étoiles
+            for _ in range(3):  # Ajouter 3 étoiles
+                star = {
+                    'x': fx + fw//2 + np.random.randint(-50, 50),
+                    'y': fy + fh//2 + np.random.randint(-30, 30),
+                    'life': 30,  # Durée de vie en frames
+                    'size': np.random.randint(20, 40),
+                    'vx': np.random.uniform(-2, 2),  # Vélocité horizontale
+                    'vy': np.random.uniform(-3, -1)  # Vélocité verticale (vers le haut)
+                }
+                smile_stars.append(star)
     
     # Ajouter le personnage animé qui descend
     if character is not None and character_alpha is not None:
@@ -262,6 +283,50 @@ while True:
         # Réinitialiser la position quand le personnage sort de l'écran
         if character_y > frame.shape[0]:
             character_y = -character_height
+    
+    # Dessiner et animer les étoiles de sourire
+    stars_to_remove = []
+    for i, star in enumerate(smile_stars):
+        # Mettre à jour la position
+        star['x'] += star['vx']
+        star['y'] += star['vy']
+        star['life'] -= 1
+        
+        # Calculer l'opacité basée sur la durée de vie
+        opacity = star['life'] / 30.0
+        
+        if star['life'] <= 0:
+            stars_to_remove.append(i)
+        else:
+            # Dessiner une étoile à 5 branches
+            center = (int(star['x']), int(star['y']))
+            size = star['size']
+            
+            # Créer les points de l'étoile
+            points = []
+            for j in range(10):
+                angle = np.pi / 2 + j * np.pi / 5
+                if j % 2 == 0:
+                    r = size
+                else:
+                    r = size * 0.4
+                x = int(center[0] + r * np.cos(angle))
+                y = int(center[1] - r * np.sin(angle))
+                points.append([x, y])
+            
+            points = np.array(points, dtype=np.int32)
+            
+            # Dessiner l'étoile avec de la transparence
+            overlay = frame.copy()
+            cv2.fillPoly(overlay, [points], (0, 215, 255))  # Couleur dorée (BGR)
+            cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+            
+            # Contour de l'étoile
+            cv2.polylines(frame, [points], True, (0, 165, 255), 2)
+    
+    # Retirer les étoiles expirées
+    for i in reversed(stars_to_remove):
+        smile_stars.pop(i)
 
     # Afficher le résultat
     cv2.imshow('Real-Time Face Detection with Sunglasses', frame)
