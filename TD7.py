@@ -13,7 +13,7 @@ cap = cv2.VideoCapture(0)
 sunglasses = cv2.imread('/home/qulorenzo/Cours/Traitement Images/TD7/images/images/sunglasses.png')
 sunglassesAlpha = cv2.imread('/home/qulorenzo/Cours/Traitement Images/TD7/images/images/alpha.png')
 hat = cv2.imread('/home/qulorenzo/Cours/Traitement Images/TD7/images/images/image 1.jpeg')
-hatAlpha = cv2.imread('/home/qulorenzo/Cours/Traitement Images/TD7/images/images/image 2.jpeg')
+hatAlpha = cv2.imread('/home/qulorenzo/Cours/Traitement Images/TD7/images/images/image 2.jpg')
 
 # Charger le personnage animé
 character = cv2.imread('/home/qulorenzo/Cours/Traitement Images/TD7/images/images/02_personage.png', cv2.IMREAD_UNCHANGED)
@@ -73,9 +73,6 @@ while True:
         if actual_height > 0 and actual_width > 0:
             # Extraire la région correspondante du chapeau
             hat_crop = hat_resized[offset_y:offset_y+actual_height, offset_x:offset_x+actual_width]
-            # Convertir le chapeau en noir et blanc
-            hat_crop_gray = cv2.cvtColor(hat_crop, cv2.COLOR_BGR2GRAY)
-            hat_crop = cv2.cvtColor(hat_crop_gray, cv2.COLOR_GRAY2BGR)
             alpha_crop = hatAlpha_resized[offset_y:offset_y+actual_height, offset_x:offset_x+actual_width]
             
             # Normaliser le masque alpha
@@ -130,6 +127,10 @@ while True:
             glasses_width = int(eye_distance * 2.5)  # Ajustez ce facteur
             glasses_height = int(sunglasses.shape[0] * glasses_width / sunglasses.shape[1])
             
+            # Vérifier que les dimensions sont valides
+            if glasses_width <= 0 or glasses_height <= 0:
+                continue
+            
             sunglasses_resized = cv2.resize(sunglasses, (glasses_width, glasses_height))
             sunglassesAlpha_resized = cv2.resize(sunglassesAlpha, (glasses_width, glasses_height))
             
@@ -153,10 +154,7 @@ while True:
                 if actual_height > 0 and actual_width > 0:
                     # Préparer le masque alpha normalisé
                     alpha_resized = sunglassesAlpha_resized[:actual_height, :actual_width]
-                    # Convertir les lunettes en noir et blanc
                     glasses_crop = sunglasses_resized[:actual_height, :actual_width]
-                    glasses_crop_gray = cv2.cvtColor(glasses_crop, cv2.COLOR_BGR2GRAY)
-                    glasses_crop = cv2.cvtColor(glasses_crop_gray, cv2.COLOR_GRAY2BGR)
                     maskNormalized = cv2.normalize(
                         alpha_resized, None, alpha=0, beta=1, 
                         norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F
@@ -209,9 +207,6 @@ while True:
             # Extraire la région correspondante
             char_crop = character_resized[offset_y_char:offset_y_char+actual_height_char, 
                                          offset_x_char:offset_x_char+actual_width_char]
-            # Convertir le personnage en noir et blanc
-            char_crop_gray = cv2.cvtColor(char_crop, cv2.COLOR_BGR2GRAY)
-            char_crop = cv2.cvtColor(char_crop_gray, cv2.COLOR_GRAY2BGR)
             alpha_crop_char = character_alpha_resized[offset_y_char:offset_y_char+actual_height_char, 
                                                       offset_x_char:offset_x_char+actual_width_char]
             
