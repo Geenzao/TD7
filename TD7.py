@@ -190,6 +190,31 @@ while True:
         # Position horizontale (centrée)
         character_x = frame.shape[1] - character_width - 50  # À droite de l'écran
         
+        # Vérifier l'intersection avec les visages détectés
+        intersection_detected = False
+        for (fx, fy, fw, fh) in faces:
+            # Rectangle du visage
+            face_x1, face_y1 = fx, fy
+            face_x2, face_y2 = fx + fw, fy + fh
+            
+            # Rectangle du personnage
+            char_x1, char_y1 = character_x, int(character_y)
+            char_x2, char_y2 = character_x + character_width, int(character_y) + character_height
+            
+            # Détecter l'intersection
+            if not (char_x2 < face_x1 or char_x1 > face_x2 or char_y2 < face_y1 or char_y1 > face_y2):
+                intersection_detected = True
+                break
+        
+        # Appliquer une teinte différente si intersection
+        if intersection_detected:
+            # Changer la couleur en rouge (teinte rouge)
+            character_resized = character_resized.astype(np.float32)
+            character_resized[:, :, 0] = character_resized[:, :, 0] * 0.3  # Réduire le bleu
+            character_resized[:, :, 1] = character_resized[:, :, 1] * 0.3  # Réduire le vert
+            character_resized[:, :, 2] = np.minimum(character_resized[:, :, 2] * 1.5, 255)  # Augmenter le rouge
+            character_resized = character_resized.astype(np.uint8)
+        
         # Calculer les limites pour l'overlay
         start_y_char = max(0, int(character_y))
         end_y_char = min(int(character_y) + character_height, frame.shape[0])
