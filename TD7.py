@@ -29,18 +29,48 @@ character_height = int(character.shape[0] * character_width / character.shape[1]
 # Liste pour stocker les étoiles de sourire
 smile_stars = []  # Chaque étoile: {'x': x, 'y': y, 'life': life, 'size': size}
 
+# Variables de contrôle pour le menu interactif
+enable_bw_filter = 1  # Filtre noir et blanc
+enable_hat = 1  # Chapeau
+enable_glasses = 1  # Lunettes
+enable_character = 1  # Personnage animé
+enable_smile_stars = 1  # Étoiles de sourire
+
+# Fonction callback vide pour les trackbars
+def nothing(x):
+    pass
+
+# Créer les fenêtres
+cv2.namedWindow('Real-Time Face Detection with Sunglasses')
+cv2.namedWindow('Controls')
+
+# Créer les trackbars dans la fenêtre de contrôle
+cv2.createTrackbar('Filtre N&B', 'Controls', enable_bw_filter, 1, nothing)
+cv2.createTrackbar('Chapeau', 'Controls', enable_hat, 1, nothing)
+cv2.createTrackbar('Lunettes', 'Controls', enable_glasses, 1, nothing)
+cv2.createTrackbar('Personnage', 'Controls', enable_character, 1, nothing)
+cv2.createTrackbar('Etoiles sourire', 'Controls', enable_smile_stars, 1, nothing)
+
 
 while True:
     ret, frame = cap.read()
     if not ret:
         break
     
-     # Appliquer le filtre noir et blanc à toute la frame
-    gray_full = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    frame = cv2.cvtColor(gray_full, cv2.COLOR_GRAY2BGR)
+    # Lire les valeurs des trackbars
+    enable_bw_filter = cv2.getTrackbarPos('Filtre N&B', 'Controls')
+    enable_hat = cv2.getTrackbarPos('Chapeau', 'Controls')
+    enable_glasses = cv2.getTrackbarPos('Lunettes', 'Controls')
+    enable_character = cv2.getTrackbarPos('Personnage', 'Controls')
+    enable_smile_stars = cv2.getTrackbarPos('Etoiles sourire', 'Controls')
     
-    # Convertir en niveaux de gris pour la détection
-    gray = gray_full
+    # Appliquer le filtre noir et blanc à toute la frame (si activé)
+    if enable_bw_filter:
+        gray_full = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        frame = cv2.cvtColor(gray_full, cv2.COLOR_GRAY2BGR)
+        gray = gray_full
+    else:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     
     # Détecter les visages
     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
@@ -50,55 +80,56 @@ while True:
         # axes = (fw//2, fh//2)
         # frame = cv2.ellipse(frame, center, axes, 0, 0, 360, (255, 0, 255), 4)
         
-        # Ajouter le chapeau au-dessus du visage
-        hat_width = int(fw * 1.8)  # Le chapeau est plus large que le visage
-        hat_height = int(hat.shape[0] * hat_width / hat.shape[1])
-        
-        hat_resized = cv2.resize(hat, (hat_width, hat_height))
-        hatAlpha_resized = cv2.resize(hatAlpha, (hat_width, hat_height))
-        
-        # Position du chapeau (au-dessus du visage)
-        hat_x = fx + fw//2 - hat_width//2
-        hat_y = fy - int(hat_height * 0.8)  # Position au-dessus du front
-        
-        # Ajuster si hors limites
-        start_y = max(0, hat_y)
-        start_x = max(0, hat_x)
-        end_y = min(hat_y + hat_height, frame.shape[0])
-        end_x = min(hat_x + hat_width, frame.shape[1])
-        
-        # Calculer les offsets dans l'image du chapeau
-        offset_y = start_y - hat_y
-        offset_x = start_x - hat_x
-        
-        actual_height = end_y - start_y
-        actual_width = end_x - start_x
-        
-        if actual_height > 0 and actual_width > 0:
-            # Extraire la région correspondante du chapeau
-            hat_crop = hat_resized[offset_y:offset_y+actual_height, offset_x:offset_x+actual_width]
-            alpha_crop = hatAlpha_resized[offset_y:offset_y+actual_height, offset_x:offset_x+actual_width]
+        # Ajouter le chapeau au-dessus du visage (si activé)
+        if enable_hat:
+            hat_width = int(fw * 1.8)  # Le chapeau est plus large que le visage
+            hat_height = int(hat.shape[0] * hat_width / hat.shape[1])
             
-            # Normaliser le masque alpha
-            maskNormalized = cv2.normalize(
-                alpha_crop, None, alpha=0, beta=1, 
-                norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F
-            )
+            hat_resized = cv2.resize(hat, (hat_width, hat_height))
+            hatAlpha_resized = cv2.resize(hatAlpha, (hat_width, hat_height))
             
-            if len(maskNormalized.shape) == 2:
-                maskNormalized = np.expand_dims(maskNormalized, axis=2)
+            # Position du chapeau (au-dessus du visage)
+            hat_x = fx + fw//2 - hat_width//2
+            hat_y = fy - int(hat_height * 0.8)  # Position au-dessus du front
             
-            # Conversion en float32
-            hatFloat = np.float32(hat_crop)
+            # Ajuster si hors limites
+            start_y = max(0, hat_y)
+            start_x = max(0, hat_x)
+            end_y = min(hat_y + hat_height, frame.shape[0])
+            end_x = min(hat_x + hat_width, frame.shape[1])
             
-            # Région du background
-            bgRegion = frame[start_y:end_y, start_x:end_x].astype(np.float32)
+            # Calculer les offsets dans l'image du chapeau
+            offset_y = start_y - hat_y
+            offset_x = start_x - hat_x
             
-            # Blending alpha
-            blended = hatFloat * maskNormalized + bgRegion * (1 - maskNormalized)
+            actual_height = end_y - start_y
+            actual_width = end_x - start_x
             
-            # Insertion
-            frame[start_y:end_y, start_x:end_x] = blended.astype(np.uint8)
+            if actual_height > 0 and actual_width > 0:
+                # Extraire la région correspondante du chapeau
+                hat_crop = hat_resized[offset_y:offset_y+actual_height, offset_x:offset_x+actual_width]
+                alpha_crop = hatAlpha_resized[offset_y:offset_y+actual_height, offset_x:offset_x+actual_width]
+                
+                # Normaliser le masque alpha
+                maskNormalized = cv2.normalize(
+                    alpha_crop, None, alpha=0, beta=1, 
+                    norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F
+                )
+                
+                if len(maskNormalized.shape) == 2:
+                    maskNormalized = np.expand_dims(maskNormalized, axis=2)
+                
+                # Conversion en float32
+                hatFloat = np.float32(hat_crop)
+                
+                # Région du background
+                bgRegion = frame[start_y:end_y, start_x:end_x].astype(np.float32)
+                
+                # Blending alpha
+                blended = hatFloat * maskNormalized + bgRegion * (1 - maskNormalized)
+                
+                # Insertion
+                frame[start_y:end_y, start_x:end_x] = blended.astype(np.uint8)
         
         # Détecter les yeux dans la région du visage
         roi_gray = gray[fy:fy+fh, fx:fx+fw]
@@ -107,7 +138,7 @@ while True:
         # axes = (fw//2, fh//2)
         # frame = cv2.ellipse(frame, center, axes, 0, 0, 360, (255, 0, 255), 4)
         # On a besoin d'au moins 2 yeux
-        if len(eyes) >= 2:
+        if enable_glasses and len(eyes) >= 2:
             # Trier les yeux de gauche à droite
             eyes = sorted(eyes, key=lambda x: x[0])
             
@@ -183,7 +214,7 @@ while True:
         roi_gray_smile = gray[fy:fy+fh, fx:fx+fw]
         smiles = smile_cascade.detectMultiScale(roi_gray_smile, scaleFactor=1.8, minNeighbors=20, minSize=(25, 25))
         
-        if len(smiles) > 0:
+        if enable_smile_stars and len(smiles) > 0:
             # Un sourire est détecté ! Ajouter des étoiles
             for _ in range(3):  # Ajouter 3 étoiles
                 star = {
@@ -197,7 +228,7 @@ while True:
                 smile_stars.append(star)
     
     # Ajouter le personnage animé qui descend
-    if character is not None and character_alpha is not None:
+    if enable_character and character is not None and character_alpha is not None:
         # Convertir en BGR si nécessaire (enlever le canal alpha)
         if character.shape[2] == 4:
             character_bgr = character[:, :, :3]
@@ -285,48 +316,49 @@ while True:
             character_y = -character_height
     
     # Dessiner et animer les étoiles de sourire
-    stars_to_remove = []
-    for i, star in enumerate(smile_stars):
-        # Mettre à jour la position
-        star['x'] += star['vx']
-        star['y'] += star['vy']
-        star['life'] -= 1
+    if enable_smile_stars:
+        stars_to_remove = []
+        for i, star in enumerate(smile_stars):
+            # Mettre à jour la position
+            star['x'] += star['vx']
+            star['y'] += star['vy']
+            star['life'] -= 1
+            
+            # Calculer l'opacité basée sur la durée de vie
+            opacity = star['life'] / 30.0
+            
+            if star['life'] <= 0:
+                stars_to_remove.append(i)
+            else:
+                # Dessiner une étoile à 5 branches
+                center = (int(star['x']), int(star['y']))
+                size = star['size']
+                
+                # Créer les points de l'étoile
+                points = []
+                for j in range(10):
+                    angle = np.pi / 2 + j * np.pi / 5
+                    if j % 2 == 0:
+                        r = size
+                    else:
+                        r = size * 0.4
+                    x = int(center[0] + r * np.cos(angle))
+                    y = int(center[1] - r * np.sin(angle))
+                    points.append([x, y])
+                
+                points = np.array(points, dtype=np.int32)
+                
+                # Dessiner l'étoile avec de la transparence
+                overlay = frame.copy()
+                cv2.fillPoly(overlay, [points], (0, 215, 255))  # Couleur dorée (BGR)
+                cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
+                
+                # Contour de l'étoile
+                cv2.polylines(frame, [points], True, (0, 165, 255), 2)
         
-        # Calculer l'opacité basée sur la durée de vie
-        opacity = star['life'] / 30.0
-        
-        if star['life'] <= 0:
-            stars_to_remove.append(i)
-        else:
-            # Dessiner une étoile à 5 branches
-            center = (int(star['x']), int(star['y']))
-            size = star['size']
-            
-            # Créer les points de l'étoile
-            points = []
-            for j in range(10):
-                angle = np.pi / 2 + j * np.pi / 5
-                if j % 2 == 0:
-                    r = size
-                else:
-                    r = size * 0.4
-                x = int(center[0] + r * np.cos(angle))
-                y = int(center[1] - r * np.sin(angle))
-                points.append([x, y])
-            
-            points = np.array(points, dtype=np.int32)
-            
-            # Dessiner l'étoile avec de la transparence
-            overlay = frame.copy()
-            cv2.fillPoly(overlay, [points], (0, 215, 255))  # Couleur dorée (BGR)
-            cv2.addWeighted(overlay, opacity, frame, 1 - opacity, 0, frame)
-            
-            # Contour de l'étoile
-            cv2.polylines(frame, [points], True, (0, 165, 255), 2)
-    
-    # Retirer les étoiles expirées
-    for i in reversed(stars_to_remove):
-        smile_stars.pop(i)
+        # Retirer les étoiles expirées
+        for i in reversed(stars_to_remove):
+            smile_stars.pop(i)
 
     # Afficher le résultat
     cv2.imshow('Real-Time Face Detection with Sunglasses', frame)
